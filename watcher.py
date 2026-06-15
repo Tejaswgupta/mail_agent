@@ -1,0 +1,107 @@
+"""Core inbox-watching loop — polls Zoho Mail every POLL_INTERVAL_SECONDS."""
+from __future__ import annotations
+
+import time
+from datetime import datetime
+from pathlib import Path
+
+from loguru import logger
+from playwright.sync_api import Page
+
+import notifier
+import session_monitor
+import storage
+import zoho_client
+import attachment_processor
+from config import settings
+
+
+def _screenshot(page: Page, name: str) -> None:
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = settings.SCREENSHOTS_DIR / f"{name}_{ts}.png"
+    try:
+        page.screenshot(path=str(path))
+    except Exception:
+        pass
+
+
+def run_once(page: Page) -> int:
+    """Single polling pass. Returns number of emails processed."""
+    # Session check first
+    if session_monitor.check(page):
+        logger.error("ALERT: Zoho Mail session has expired due to inactivity!")
+        session_monitor.handle_expiry(page, str(settings.SCREENSHOTS_DIR))
+        zoho_client.ensure_logged_in(page)
+        return 0
+
+    emails = zoho_client.get_inbox_emails(page)
+    processed_count = 0
+
+    for email in emails:
+        email_id = email["email_id"]
+        if not email_id:
+            continue
+
+        try:
+            if storage.is_processed(email_id):
+                logger.debug(f"Skipping already-processed email {email_id}")
+                continue
+        except Exception as exc:
+            logger.error(f"DB check failed for {email_id}: {exc}")
+            continue
+
+        # Wait a small delay between emails to let UI settle
+        time.sleep(1)
+
+        if not zoho_client.open_email(page, email_id, aria_label=email.get("aria_label")):
+            logger.warning(f"Could not open email {email_id} — skipping")
+            continue
+
+        try:
+            storage.mark_processed(
+                email_id=email_id,
+                subject=email["subject"],
+                sender=email["sender"],
+                received_at=email["received_at"],
+            )
+            processed_count += 1
+        except Exception as exc:
+            logger.error(f"mark_processed failed for {email_id}: {exc}")
+            continue
+
+        for download, true_filename in zoho_client.iter_attachments(page, email_id):
+            try:
+                meta = attachment_processor.process_download(download, email_id, true_filename)
+                if meta:
+                    logger.info(f"Attachment processed: {meta['file_name']} ({meta['file_size']} bytes)")
+                else:
+                    logger.warning(f"process_download returned None for an attachment in {email_id}")
+            except Exception as exc:
+                logger.error(f"Attachment processing error ({email_id}): {exc}")
+                _screenshot(page, f"attach_error_{email_id}")
+
+    return processed_count
+
+
+def watch(page: Page) -> None:
+    """Blocking watch loop. Runs until interrupted."""
+    logger.info("Watcher started — poll interval: %ds", settings.POLL_INTERVAL_SECONDS)
+    notifier.send("✅ Zoho Mail watcher started")
+
+    while True:
+        try:
+            storage.heartbeat()
+        except Exception as exc:
+            logger.warning(f"Heartbeat failed: {exc}")
+
+        try:
+            count = run_once(page)
+            if count:
+                logger.info(f"Poll complete — processed {count} new email(s)")
+            else:
+                logger.debug("Poll complete — no new emails")
+        except Exception as exc:
+            logger.error(f"Poll error: {exc}")
+            _screenshot(page, "poll_error")
+
+        time.sleep(settings.POLL_INTERVAL_SECONDS)

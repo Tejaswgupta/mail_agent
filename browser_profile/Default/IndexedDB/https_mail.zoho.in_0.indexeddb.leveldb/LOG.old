@@ -1,0 +1,24 @@
+2026/06/15-14:42:45.355 431c Reusing MANIFEST C:\Users\Administrator\Downloads\mail_agent (1)\mail_agent\browser_profile\Default\IndexedDB\https_mail.zoho.in_0.indexeddb.leveldb/MANIFEST-000001
+2026/06/15-14:42:45.355 431c Recovering log #76
+2026/06/15-14:42:45.356 431c Reusing old log C:\Users\Administrator\Downloads\mail_agent (1)\mail_agent\browser_profile\Default\IndexedDB\https_mail.zoho.in_0.indexeddb.leveldb/000076.log 
+2026/06/15-14:42:45.399 431c Level-0 table #81: started
+2026/06/15-14:42:45.402 431c Level-0 table #81: 1994 bytes OK
+2026/06/15-14:42:45.405 431c Delete type=0 #76
+2026/06/15-14:42:45.406 431c Manual compaction at level-0 from '\x00\x1f\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00 \x00\x00\x00' @ 0 : 0; will stop at '\x00\x1f\x01\x02\x01\x03\x00k\x00e\x00y' @ 1669 : 1
+2026/06/15-14:42:45.406 431c Compacting 1@0 + 1@1 files
+2026/06/15-14:42:45.409 431c Generated table #82@0: 44 keys, 1094 bytes
+2026/06/15-14:42:45.409 431c Compacted 1@0 + 1@1 files => 1094 bytes
+2026/06/15-14:42:45.414 431c compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/15-14:42:45.415 431c Delete type=2 #81
+2026/06/15-14:42:45.415 431c Manual compaction at level-0 from '\x00\x1f\x01\x02\x01\x03\x00k\x00e\x00y' @ 1669 : 1 .. '\x00 \x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/06/15-14:42:45.669 84b0 Level-0 table #84: started
+2026/06/15-14:42:45.679 84b0 Level-0 table #84: 503 bytes OK
+2026/06/15-14:42:45.683 84b0 Delete type=2 #78
+2026/06/15-14:42:45.684 84b0 Delete type=0 #80
+2026/06/15-14:42:45.684 431c Manual compaction at level-0 from '\x00 \x00\x00\x00' @ 72057594037927935 : 1 .. '\x00!\x00\x00\x00' @ 0 : 0; will stop at '\x00 \x00\x00\x05' @ 1705 : 1
+2026/06/15-14:42:45.684 431c Compacting 1@0 + 1@1 files
+2026/06/15-14:42:45.689 431c Generated table #85@0: 44 keys, 1113 bytes
+2026/06/15-14:42:45.689 431c Compacted 1@0 + 1@1 files => 1113 bytes
+2026/06/15-14:42:45.692 431c compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/06/15-14:42:45.692 431c Delete type=2 #84
+2026/06/15-14:42:45.693 431c Manual compaction at level-0 from '\x00 \x00\x00\x05' @ 1705 : 1 .. '\x00!\x00\x00\x00' @ 0 : 0; will stop at (end)

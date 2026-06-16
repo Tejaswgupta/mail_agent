@@ -34,6 +34,8 @@ def run_once(page: Page) -> int:
 
     emails = zoho_client.get_inbox_emails(page)
     processed_count = 0
+    consecutive_seen = 0
+    EARLY_EXIT_THRESHOLD = 3
 
     for email in emails:
         email_id = email["email_id"]
@@ -42,11 +44,17 @@ def run_once(page: Page) -> int:
 
         try:
             if storage.is_processed(email_id):
+                consecutive_seen += 1
+                if consecutive_seen >= EARLY_EXIT_THRESHOLD:
+                    logger.debug(f"Last {EARLY_EXIT_THRESHOLD} emails already processed — stopping scan")
+                    break
                 logger.debug(f"Skipping already-processed email {email_id}")
                 continue
         except Exception as exc:
             logger.error(f"DB check failed for {email_id}: {exc}")
             continue
+
+        consecutive_seen = 0  # reset on any new email
 
         logger.info(f"Processing email: {email_id} | {email['subject']}")
 

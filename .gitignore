@@ -1,0 +1,22 @@
+# Chrome persistent profile — contains session cookies, cache, user data
+browser_profile/
+
+# Runtime artifacts
+logs/
+screenshots/
+downloads/
+
+# SQLite DB (runtime state)
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# macOS
+.DS_Store

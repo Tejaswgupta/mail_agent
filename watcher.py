@@ -91,6 +91,14 @@ def watch(page: Page) -> None:
             logger.warning(f"Heartbeat failed: {exc}")
 
         try:
+            if session_monitor.check(page):
+                session_monitor.handle_expiry(page, str(settings.SCREENSHOTS_DIR))
+                if not zoho_client.ensure_logged_in(page):
+                    logger.error("Re-login failed — stopping watcher")
+                    return
+                logger.info("Re-login successful — resuming watcher")
+                continue
+
             count = run_once(page)
             if count:
                 logger.info(f"Poll complete — processed {count} new email(s)")

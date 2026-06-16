@@ -36,8 +36,11 @@ def ensure_logged_in(page: Page) -> bool:
     logger.info("Navigating to Zoho Mail…")
     page.goto(settings.ZOHO_MAIL_URL, wait_until="domcontentloaded", timeout=60_000)
 
-    # Wait a moment for redirect / auth check
-    time.sleep(3)
+    # Wait for network to go idle so any auth redirect has fully landed.
+    try:
+        page.wait_for_load_state("networkidle", timeout=15_000)
+    except Exception:
+        pass  # timeout is fine — just check wherever we ended up
 
     if not session_monitor.check(page):
         logger.info("Already logged in")

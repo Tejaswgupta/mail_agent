@@ -11,20 +11,18 @@ import notifier
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 
-# Patterns that indicate the session has expired or the user is on the login page
-_SESSION_EXPIRED_PATTERNS = [
-    re.compile(r"accounts\.zoho\.(com|in|eu)/signin", re.IGNORECASE),
-    re.compile(r"accounts\.zoho\.(com|in|eu)/oauth", re.IGNORECASE),
-    re.compile(r"session.?expired", re.IGNORECASE),
-    re.compile(r"sign.?in", re.IGNORECASE),
-    re.compile(r"login", re.IGNORECASE),
-    re.compile(r"otp", re.IGNORECASE),
-    re.compile(r"two.?factor", re.IGNORECASE),
-]
+# Positive patterns — logged in if URL or title matches.
+_LOGGED_IN_URL_PATTERN = re.compile(r"zoho\.(com|in|eu).*/mail|mail\.zoho\.(com|in|eu)", re.IGNORECASE)
+_LOGGED_IN_TITLE_PATTERN = re.compile(r"inbox|zoho mail", re.IGNORECASE)
 
 
 def check(page: "Page") -> bool:
-    """Return True if the page looks like a login / session-expired page."""
+    """Return True if the session has expired (i.e. NOT on the mail app)."""
+    try:
+        page.wait_for_load_state("networkidle", timeout=10_000)
+    except Exception:
+        pass  # check wherever we are
+
     url = page.url or ""
     title = ""
     try:
@@ -32,13 +30,11 @@ def check(page: "Page") -> bool:
     except Exception:
         pass
 
-    text_to_check = url + " " + title
+    if _LOGGED_IN_URL_PATTERN.search(url) or _LOGGED_IN_TITLE_PATTERN.search(title):
+        return False  # on mail app — logged in
 
-    for pattern in _SESSION_EXPIRED_PATTERNS:
-        if pattern.search(text_to_check):
-            logger.warning(f"Session expiry detected — URL: {url}, title: {title}")
-            return True
-    return False
+    logger.warning(f"Session expiry detected — URL: {url}, title: {title}")
+    return True
 
 
 def handle_expiry(page: "Page", screenshot_dir: str) -> None:

@@ -1,8 +1,8 @@
 """Central configuration — loaded once, validated at startup."""
 from pathlib import Path
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
-
 
 BASE_DIR = Path(__file__).parent
 
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     BROWSER_PROFILE_DIR: Path = BASE_DIR / "browser_profile"
 
     # Zoho
-    ZOHO_MAIL_URL: str = "https://mail.zoho.in"
+    ZOHO_MAIL_URL: str = "https://mail.gov.in"
 
     model_config = {"env_file": str(BASE_DIR / ".env"), "extra": "ignore"}
 

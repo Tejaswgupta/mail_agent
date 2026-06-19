@@ -4,7 +4,6 @@ from __future__ import annotations
 import signal
 import sys
 import time
-from pathlib import Path
 
 from loguru import logger
 from playwright.sync_api import sync_playwright, BrowserContext, Page
@@ -45,69 +44,24 @@ logger.add(
 # Browser management
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _chromium_executable() -> str | None:
-    """Return path to the Chromium bundled inside the Nuitka onefile exe, or
-    None when running from source (falls back to system Chrome below)."""
-    # Nuitka extracts onefile contents to a temp dir and sets sys._MEIPASS-style
-    # via __compiled__. We use the location of this file as the anchor.
-    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else None
-    if base is None:
-        # Also handle Nuitka's __compiled__ attribute
-        try:
-            if __compiled__:          # type: ignore[name-defined]
-                base = Path(sys.executable).parent
-        except NameError:
-            pass
-    if base is None:
-        return None
-
-    # Playwright bundles the chromium binary under playwright/driver/package/.local-chromium/
-    candidates = list(base.glob("playwright/driver/package/.local-chromium/**/chrome.exe"))
-    if candidates:
-        return str(candidates[0])
-    # Fallback: playwright/driver/node_modules/playwright-core/.local-chromium
-    candidates = list(base.glob("**/chrome.exe"))
-    if candidates:
-        return str(candidates[0])
-    return None
-
-
 def _launch_context(playwright) -> BrowserContext:
-    exe = _chromium_executable()
     temp_downloads = settings.DOWNLOADS_DIR / ".temp"
     temp_downloads.mkdir(parents=True, exist_ok=True)
-    if exe:
-        logger.info(f"Using bundled Chromium: {exe}")
-        return playwright.chromium.launch_persistent_context(
-            user_data_dir=str(settings.BROWSER_PROFILE_DIR),
-            executable_path=exe,
-            headless=False,
-            no_viewport=True,
-            args=[
-                "--start-maximized",
-                "--disable-background-timer-throttling",
-                "--disable-renderer-backgrounding",
-                "--disable-backgrounding-occluded-windows",
-            ],
-            accept_downloads=True,
-            downloads_path=str(temp_downloads),
-        )
-    else:
-        logger.info("Bundled Chromium not found — using system Chrome")
-        return playwright.chromium.launch_persistent_context(
-            user_data_dir=str(settings.BROWSER_PROFILE_DIR),
-            channel="chrome",
-            headless=False,
-            no_viewport=True,
-            args=[
-                "--start-maximized",
-                "--disable-background-timer-throttling",
-                "--disable-renderer-backgrounding",
-                "--disable-backgrounding-occluded-windows",
-            ],
-            accept_downloads=True,
-            downloads_path=str(temp_downloads),
-        )
+    return playwright.chromium.launch_persistent_context(
+        user_data_dir=str(settings.BROWSER_PROFILE_DIR),
+        channel="chrome",
+        headless=False,
+        no_viewport=True,
+        args=[
+            "--start-maximized",
+            "--disable-background-timer-throttling",
+            "--disable-renderer-backgrounding",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-blink-features=AutomationControlled",
+        ],
+        accept_downloads=True,
+        downloads_path=str(temp_downloads),
+    )
 
 
 def _get_or_create_page(context: BrowserContext) -> Page:

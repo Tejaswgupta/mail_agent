@@ -139,7 +139,7 @@ def get_inbox_emails(page: Page) -> list[dict]:
             inbox.click()
             time.sleep(2)
         else:
-            page.goto(settings.ZOHO_MAIL_URL + "/zm/#mail/folder/inbox", wait_until="domcontentloaded", timeout=30_000)
+            page.goto(settings.ZOHO_MAIL_URL, wait_until="domcontentloaded", timeout=30_000)
             time.sleep(2)
     except Exception as exc:
         logger.warning(f"Could not navigate to inbox: {exc}")

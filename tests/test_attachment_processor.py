@@ -36,36 +36,19 @@ def test_process_download_returns_metadata(tmp_path, monkeypatch):
     dl.delete.assert_called_once()
 
 
-def test_process_download_xlsx_triggers_parser(tmp_path, monkeypatch):
+def test_process_download_xlsx_triggers_manifest_normalizer(tmp_path, monkeypatch):
     from config import settings
     monkeypatch.setattr(settings, "DOWNLOADS_DIR", tmp_path / "downloads")
     (tmp_path / "downloads").mkdir(parents=True, exist_ok=True)
 
     storage.mark_processed("email-002", "S", "a@b.com", "2024-01-01")
-    dl = _make_download(tmp_path, "data.xlsx", b"fake xlsx bytes")
+    dl = _make_download(tmp_path, "6E1401.xlsx", b"fake xlsx bytes")
 
-    with patch("attachment_processor.xlsx_parser.parse", return_value={"Sheet1": [{"A": 1}]}) as mock_parse:
-        with patch("attachment_processor.storage.store_xlsx_rows", return_value=1) as mock_store:
+    with patch("attachment_processor.manifest_normalizer.normalize", return_value=("6E", "post_departure", [{"pnr": "X", "_raw": {}}])) as mock_norm:
+        with patch("attachment_processor.storage.store_manifest_passengers", return_value=1) as mock_store:
             attachment_processor.process_download(dl, "email-002")
 
-    mock_parse.assert_called_once()
-    mock_store.assert_called_once()
-
-
-def test_process_download_pdf_triggers_parser(tmp_path, monkeypatch):
-    from config import settings
-    monkeypatch.setattr(settings, "DOWNLOADS_DIR", tmp_path / "downloads")
-    (tmp_path / "downloads").mkdir(parents=True, exist_ok=True)
-
-    storage.mark_processed("email-003", "S", "a@b.com", "2024-01-01")
-    dl = _make_download(tmp_path, "report.pdf", b"fake pdf bytes")
-
-    table = {"page_number": 1, "table_index": 0, "headers": ["H"], "rows": [["v"]]}
-    with patch("attachment_processor.pdf_parser.parse", return_value=[table]) as mock_parse:
-        with patch("attachment_processor.storage.store_pdf_tables") as mock_store:
-            attachment_processor.process_download(dl, "email-003")
-
-    mock_parse.assert_called_once()
+    mock_norm.assert_called_once()
     mock_store.assert_called_once()
 
 

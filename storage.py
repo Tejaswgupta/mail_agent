@@ -58,28 +58,42 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS attachments_email_id_idx ON attachments(email_id);
             CREATE INDEX IF NOT EXISTS attachments_sha256_idx   ON attachments(sha256);
 
-            -- Each row from an xlsx sheet
-            CREATE TABLE IF NOT EXISTS xlsx_rows (
-                id           TEXT PRIMARY KEY,
-                attachment_id TEXT NOT NULL REFERENCES attachments(id),
-                sheet_name   TEXT NOT NULL,
-                row_index    INTEGER NOT NULL,
-                data         TEXT NOT NULL    -- JSON object keyed by column header
+            -- Normalized passenger manifest rows (all carriers)
+            CREATE TABLE IF NOT EXISTS manifest_passengers (
+                id              TEXT PRIMARY KEY,
+                attachment_id   TEXT NOT NULL REFERENCES attachments(id),
+                airline_code    TEXT NOT NULL,   -- 6E / IX / TG
+                manifest_type   TEXT NOT NULL,   -- pre_departure / post_departure
+                flight_number   TEXT,
+                flight_date     TEXT,
+                origin          TEXT,
+                destination     TEXT,
+                pnr             TEXT,
+                title           TEXT,
+                first_name      TEXT,
+                last_name       TEXT,
+                full_name       TEXT,
+                passenger_type  TEXT,
+                gender          TEXT,
+                date_of_birth   TEXT,
+                nationality     TEXT,
+                passport_number TEXT,
+                cabin_class     TEXT,
+                seat_number     TEXT,
+                no_of_bags      INTEGER,
+                baggage_weight  TEXT,
+                ticket_number   TEXT,
+                ticket_issue_date TEXT,
+                booking_date    TEXT,
+                payment_mode    TEXT,
+                phone           TEXT,
+                email           TEXT,
+                raw_data        TEXT NOT NULL    -- JSON of original source row
             );
 
-            CREATE INDEX IF NOT EXISTS xlsx_rows_attachment_idx ON xlsx_rows(attachment_id);
-
-            -- Each table extracted from a PDF page
-            CREATE TABLE IF NOT EXISTS pdf_tables (
-                id           TEXT PRIMARY KEY,
-                attachment_id TEXT NOT NULL REFERENCES attachments(id),
-                page_number  INTEGER NOT NULL,
-                table_index  INTEGER NOT NULL,
-                headers      TEXT NOT NULL,   -- JSON array of column names
-                rows         TEXT NOT NULL    -- JSON array of arrays (row data)
-            );
-
-            CREATE INDEX IF NOT EXISTS pdf_tables_attachment_idx ON pdf_tables(attachment_id);
+            CREATE INDEX IF NOT EXISTS manifest_pax_attachment_idx ON manifest_passengers(attachment_id);
+            CREATE INDEX IF NOT EXISTS manifest_pax_flight_idx     ON manifest_passengers(flight_number, flight_date);
+            CREATE INDEX IF NOT EXISTS manifest_pax_pnr_idx        ON manifest_passengers(pnr);
 
             CREATE TABLE IF NOT EXISTS agent_heartbeat (
                 id             TEXT PRIMARY KEY,
@@ -134,45 +148,70 @@ def record_attachment(
 
 # ── Parsed data storage ───────────────────────────────────────────────────────
 
-def store_xlsx_rows(attachment_id: str, sheet_name: str, rows: list[dict[str, Any]]) -> int:
-    """Bulk-insert parsed xlsx rows. Returns count inserted."""
+# ── Passenger manifests ──────────────────────────────────────────────────────
+
+def store_manifest_passengers(
+    attachment_id: str,
+    airline_code: str,
+    manifest_type: str,
+    rows: list[dict[str, Any]],
+) -> int:
+    """Bulk-insert normalized manifest rows. Returns count inserted."""
     if not rows:
         return 0
+
+    _TEXT_COLS = {
+        "flight_number", "flight_date", "origin", "destination", "pnr",
+        "title", "first_name", "last_name", "full_name", "passenger_type",
+        "gender", "date_of_birth", "nationality", "passport_number",
+        "cabin_class", "seat_number", "baggage_weight", "ticket_number",
+        "ticket_issue_date", "booking_date", "payment_mode", "phone", "email",
+    }
+
+    def _val(row: dict, col: str) -> Any:
+        v = row.get(col)
+        if col == "no_of_bags" and v is not None:
+            try:
+                return int(float(v))
+            except (TypeError, ValueError):
+                return None
+        if col in _TEXT_COLS:
+            return str(v).strip() if v is not None and v != "" else None
+        return v
+
     with _conn() as con:
         con.executemany(
-            """INSERT INTO xlsx_rows (id, attachment_id, sheet_name, row_index, data)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO manifest_passengers
+               (id, attachment_id, airline_code, manifest_type,
+                flight_number, flight_date, origin, destination, pnr,
+                title, first_name, last_name, full_name,
+                passenger_type, gender, date_of_birth, nationality, passport_number,
+                cabin_class, seat_number, no_of_bags, baggage_weight,
+                ticket_number, ticket_issue_date, booking_date,
+                payment_mode, phone, email, raw_data)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             [
-                (str(uuid.uuid4()), attachment_id, sheet_name, i, json.dumps(row, default=str))
-                for i, row in enumerate(rows)
+                (
+                    str(uuid.uuid4()), attachment_id, airline_code, manifest_type,
+                    _val(r, "flight_number"), _val(r, "flight_date"),
+                    _val(r, "origin"), _val(r, "destination"), _val(r, "pnr"),
+                    _val(r, "title"), _val(r, "first_name"), _val(r, "last_name"),
+                    _val(r, "full_name"), _val(r, "passenger_type"), _val(r, "gender"),
+                    _val(r, "date_of_birth"), _val(r, "nationality"), _val(r, "passport_number"),
+                    _val(r, "cabin_class"), _val(r, "seat_number"), _val(r, "no_of_bags"),
+                    _val(r, "baggage_weight"), _val(r, "ticket_number"),
+                    _val(r, "ticket_issue_date"), _val(r, "booking_date"),
+                    _val(r, "payment_mode"), _val(r, "phone"), _val(r, "email"),
+                    json.dumps(r.get("_raw", {}), default=str),
+                )
+                for r in rows
             ],
         )
-    logger.info(f"Stored {len(rows)} xlsx row(s) from sheet '{sheet_name}' for attachment {attachment_id}")
+    logger.info(
+        f"Stored {len(rows)} manifest passenger(s) [{airline_code}/{manifest_type}] "
+        f"for attachment {attachment_id}"
+    )
     return len(rows)
-
-
-def store_pdf_tables(
-    attachment_id: str,
-    page_number: int,
-    table_index: int,
-    headers: list[str],
-    rows: list[list[Any]],
-) -> None:
-    with _conn() as con:
-        con.execute(
-            """INSERT INTO pdf_tables
-               (id, attachment_id, page_number, table_index, headers, rows)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (
-                str(uuid.uuid4()),
-                attachment_id,
-                page_number,
-                table_index,
-                json.dumps(headers, default=str),
-                json.dumps(rows, default=str),
-            ),
-        )
-    logger.info(f"Stored PDF table p{page_number}[{table_index}] for attachment {attachment_id}")
 
 
 # ── Heartbeat ─────────────────────────────────────────────────────────────────

@@ -13,8 +13,7 @@ from loguru import logger
 
 from config import settings
 import storage
-import xlsx_parser
-import pdf_parser
+import manifest_normalizer
 
 if TYPE_CHECKING:
     from playwright.sync_api import Download
@@ -40,29 +39,17 @@ def _parse_and_store(attachment_id: str, path: Path) -> None:
     suffix = path.suffix.lower()
 
     if suffix in (".xlsx", ".xls"):
-        try:
-            sheets = xlsx_parser.parse(path)
-            for sheet_name, rows in sheets.items():
-                storage.store_xlsx_rows(attachment_id, sheet_name, rows)
-        except Exception as exc:
-            logger.error(f"xlsx parse failed for {path.name}: {exc}")
-
-    elif suffix == ".pdf":
-        try:
-            tables = pdf_parser.parse(path)
-            for tbl in tables:
-                storage.store_pdf_tables(
-                    attachment_id=attachment_id,
-                    page_number=tbl["page_number"],
-                    table_index=tbl["table_index"],
-                    headers=tbl["headers"],
-                    rows=tbl["rows"],
-                )
-        except Exception as exc:
-            logger.error(f"pdf parse failed for {path.name}: {exc}")
-
+        manifest_result = manifest_normalizer.normalize(path)
+        if manifest_result is not None:
+            airline_code, manifest_type, rows = manifest_result
+            try:
+                storage.store_manifest_passengers(attachment_id, airline_code, manifest_type, rows)
+            except Exception as exc:
+                logger.error(f"manifest store failed for {path.name}: {exc}")
+        else:
+            logger.debug(f"Unrecognized manifest format — skipping {path.name}")
     else:
-        logger.debug(f"No parser for extension '{suffix}' — skipping parse for {path.name}")
+        logger.debug(f"No parser for extension '{suffix}' — skipping {path.name}")
 
 
 def process_download(download: "Download", email_id: str) -> dict | None:

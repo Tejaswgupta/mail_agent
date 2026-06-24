@@ -1,16 +1,25 @@
 # Installing & Running the Zoho Mail Agent on Windows
+
 ### For non-technical users — no coding experience needed
 
 ---
 
 ## Two ways to run
 
-| | **Executable (recommended)** | **From source** |
-|---|---|---|
-| Needs Python installed | No | Yes |
-| Needs Chrome installed | No | No |
-| Setup time | ~2 minutes | ~15 minutes |
-| Who should use this | End users | Developers |
+|                        | **Executable (recommended)** | **From source** |
+| ---------------------- | ---------------------------- | --------------- |
+| Needs Python installed | No                           | Yes             |
+| Needs Chrome installed | No                           | No              |
+| Setup time             | ~2 minutes                   | ~15 minutes     |
+| Who should use this    | End users                    | Developers      |
+
+---
+
+## What you need (both options)
+
+- A Windows 10 or Windows 11 computer
+- Your Zoho Mail login credentials
+- A valid **`license.key`** file (provided by your vendor)
 
 ---
 
@@ -18,24 +27,33 @@
 
 This is the simplest way. You receive a single file (`mail_agent.exe`) and a settings file. Nothing else needs to be installed.
 
-### What you need
-- A Windows 10 or Windows 11 computer
-- Your Zoho Mail login credentials
-- About 2 minutes
-
----
-
 ### Step 1 — Get the files
 
-You should have received two files:
+You should have received:
+
 - `mail_agent.exe`
 - `.env.example`
+- `license.key`
 
-Copy both into a folder, for example: `C:\mail_agent\`
+Copy all three into a folder, for example: `C:\mail_agent\`
 
 ---
 
-### Step 2 — Fill in your settings
+### Step 2 — Place your license key
+
+Make sure `license.key` is in the **same folder** as `mail_agent.exe` (`C:\mail_agent\license.key`).
+
+The agent will not start without it. If it is missing or expired, the black window will show:
+
+```
+CRITICAL | No license file found ...
+```
+
+Contact your vendor to obtain or renew your license key.
+
+---
+
+### Step 3 — Fill in your settings
 
 1. Find the file called **`.env.example`** in your folder
 2. Right-click it → **Open with** → **Notepad**
@@ -48,7 +66,7 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 
 ZOHO_MAIL_URL=https://mail.zoho.com
-POLL_INTERVAL_SECONDS=60
+POLL_INTERVAL_SECONDS=180
 ```
 
 4. You do not need to change anything unless you want Telegram alerts:
@@ -65,7 +83,7 @@ POLL_INTERVAL_SECONDS=60
 
 ---
 
-### Step 3 — Run it
+### Step 4 — Run it
 
 1. Double-click **`mail_agent.exe`**
 2. A black window opens, then a **browser window** launches automatically
@@ -73,7 +91,9 @@ POLL_INTERVAL_SECONDS=60
 4. Once you are in your inbox, the agent takes over
 
 The black window will show:
+
 ```
+License OK — client='...' valid until ...
 Using bundled Chromium: ...
 Login detected — continuing
 Watcher started — poll interval: 60s
@@ -87,9 +107,10 @@ The database (`mail_agent.db`) is created automatically on first run — nothing
 
 ## Option B — Run from Source (developers)
 
-Use this if you want to modify the code or if you were not given a pre-built exe.
+Use this if you want to run from the provided Python source files.
 
 ### What you need
+
 - A Windows 10 or Windows 11 computer
 - About 15 minutes
 
@@ -108,9 +129,13 @@ Verify: press **Win + R**, type `cmd`, press Enter, then type `python --version`
 
 ### Step 2 — Get the files
 
-Copy the `mail_agent` folder to `C:\mail_agent\`.
+You should have received a `mail_agent` folder containing the source files and a `license.key` file.
+
+Copy the entire `mail_agent` folder to `C:\mail_agent\`.
 
 > If it came as a zip: right-click → **Extract All** → choose `C:\` as destination.
+
+Make sure `license.key` is inside `C:\mail_agent\` alongside the other files.
 
 ---
 
@@ -132,7 +157,7 @@ playwright install chromium
 
 ### Step 4 — Fill in your settings
 
-Same as Option A Step 2 above.
+Same as Option A Step 3 above.
 
 ---
 
@@ -144,28 +169,33 @@ Double-click **`run.bat`**, or in the `cmd` window run:
 python launcher.py
 ```
 
+The agent will print `License OK — client='...' valid until ...` before starting.
+
 ---
 
 ## Day-to-Day Use
 
-| Situation | What to do |
-|-----------|-----------|
-| Start the agent | Double-click `mail_agent.exe` (or `run.bat` from source) |
-| Stop the agent | Close the black window, or press **Ctrl+C** in it |
-| Session expired | Log in again in the browser window |
-| Computer restart | Just start it again — your login session is saved |
+| Situation        | What to do                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| Start the agent  | Double-click `mail_agent.exe` (or `run.bat` from source)                               |
+| Stop the agent   | Close the black window, or press **Ctrl+C** in it                                      |
+| Session expired  | Log in again in the browser window                                                     |
+| Computer restart | Just start it again — your login session is saved                                      |
+| License expiring | Contact your vendor — you will see a warning in the black window 14 days before expiry |
+| License expired  | Contact your vendor for a new `license.key` — replace the old file and restart         |
 
 ---
 
 ## What Gets Saved Where
 
-| Location | Contents |
-|----------|----------|
-| `mail_agent.db` | All data — emails, attachment records, parsed spreadsheet rows, PDF tables |
-| `downloads\` | Original attachment files, organised by date |
-| `logs\application.log` | Full activity log — open with Notepad |
-| `screenshots\` | Screenshots captured when errors occur |
-| `browser_profile\` | Saved login session — **do not delete** |
+| Location               | Contents                                                                   |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `license.key`          | Your license — **do not delete or modify**                                 |
+| `mail_agent.db`        | All data — emails, attachment records, parsed spreadsheet rows, PDF tables |
+| `downloads\`           | Original attachment files, organised by date                               |
+| `logs\application.log` | Full activity log — open with Notepad                                      |
+| `screenshots\`         | Screenshots captured when errors occur                                     |
+| `browser_profile\`     | Saved login session — **do not delete**                                    |
 
 > To browse the database, download the free **DB Browser for SQLite** from sqlitebrowser.org and open `mail_agent.db`.
 
@@ -173,8 +203,17 @@ python launcher.py
 
 ## Troubleshooting
 
-**The black window closes immediately**
-→ The `.env` file is missing. Redo Step 2.
+**The black window closes immediately with "No license file found"**
+→ The `license.key` file is missing from the folder. Place it in the same folder as `mail_agent.exe` (or `launcher.py`) and try again.
+
+**The black window closes immediately with "License expired"**
+→ Your license has expired. Contact your vendor to renew.
+
+**The black window closes immediately with "License validation failed"**
+→ The `license.key` file is corrupt or was modified. Request a fresh copy from your vendor.
+
+**The black window closes immediately with no license message**
+→ The `.env` file is missing. Redo the settings step.
 
 **"Windows protected your PC" warning when opening the exe**
 → Click **"More info"** then **"Run anyway"**. This appears because the exe is not code-signed.
@@ -184,9 +223,11 @@ python launcher.py
 
 **The browser opens but websites keep loading forever**
 → Open `.env` in Notepad and add:
+
 ```
 BROWSER_PROXY_MODE=system
 ```
+
 Save the file and restart the agent. By default the agent bypasses Windows proxy auto-detect because it can make Playwright Chromium hang on some machines. If your network requires the Windows system proxy, use `system`.
 
 **"No module named …" (source only)**

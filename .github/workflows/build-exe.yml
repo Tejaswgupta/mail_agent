@@ -1,0 +1,106 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_id:
+        description: "Client name (e.g. AcmeCorp)"
+        required: true
+      expiry:
+        description: "License expiry date (YYYY-MM-DD)"
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller pyarmor
+          playwright install chromium
+
+      - name: Write signing key
+        shell: python
+        env:
+          SIGNING_KEY: ${{ secrets.LICENSE_SIGNING_KEY }}
+        run: |
+          import os, re
+          key = os.environ["SIGNING_KEY"]
+          for fname in ["license_validator.py", "generate_license.py"]:
+            with open(fname, "r", encoding="utf-8") as f:
+              src = f.read()
+            src = re.sub(
+              r'_SIGNING_KEY = b"[^"]+"',
+              f'_SIGNING_KEY = b"{key}"',
+              src
+            )
+            with open(fname, "w", encoding="utf-8") as f:
+              f.write(src)
+
+      - name: Mint license key
+        shell: python
+        run: |
+          import sys
+          sys.argv = [
+            "generate_license.py",
+            "--client", "${{ github.event.inputs.client_id }}",
+            "--expiry", "${{ github.event.inputs.expiry }}",
+            "--out",   "license.key",
+          ]
+          exec(open("generate_license.py").read())
+
+      - name: Obfuscate source
+        run: |
+          pyarmor gen `
+            license_validator.py `
+            storage.py `
+            watcher.py `
+            zoho_client.py `
+            attachment_processor.py `
+            manifest_normalizer.py `
+            session_monitor.py `
+            notifier.py `
+            client_interface.py `
+            launcher.py `
+            config.py `
+            keep_awake.py `
+            __init__.py
+
+      - name: Build EXE
+        run: |
+          pyinstaller `
+            --onefile `
+            --name mail_agent `
+            --add-data "dist\pyarmor_runtime_000000;pyarmor_runtime_000000" `
+            --add-data "migrations;migrations" `
+            --add-data "mail.html;." `
+            --add-data "mail_with_attachment_body.html;." `
+            dist\launcher.py
+
+      - name: Package for client
+        shell: pwsh
+        run: |
+          $out = "release"
+          New-Item -ItemType Directory -Force -Path $out
+          Copy-Item "dist\mail_agent.exe"  $out
+          Copy-Item "license.key"          $out
+          Copy-Item ".env.example"         $out
+          Copy-Item "INSTALL.md"           $out
+          Compress-Archive -Path "$out\*" -DestinationPath "mail_agent_${{ github.event.inputs.client_id }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mail_agent_${{ github.event.inputs.client_id }}
+          path: mail_agent_${{ github.event.inputs.client_id }}.zip
+          retention-days: 30

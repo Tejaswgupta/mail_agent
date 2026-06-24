@@ -20,6 +20,8 @@ venv/
 
 # Secrets
 .env
+license.key
+generate_license.py
 
 # macOS
 .DS_Store

@@ -9,6 +9,7 @@ from loguru import logger
 from playwright.sync_api import sync_playwright, BrowserContext, Page, TimeoutError as PWTimeoutError
 
 import keep_awake
+import license_validator
 import notifier
 import storage
 import watcher
@@ -189,6 +190,7 @@ CRASH_BACKOFF = 30  # seconds
 
 
 def run() -> None:
+    license_validator.validate()
     keep_awake.start()
     logger.info("Application starting")
     storage.init_db()

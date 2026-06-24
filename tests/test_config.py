@@ -20,4 +20,5 @@ def test_poll_interval_default():
 
 def test_zoho_url():
     from config import settings
-    assert "zoho" in settings.ZOHO_MAIL_URL.lower()
+    assert settings.ZOHO_MAIL_URL.startswith("https://")
+    assert "mail_app" in settings.ZOHO_MAIL_URL.lower()

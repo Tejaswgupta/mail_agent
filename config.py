@@ -1,5 +1,6 @@
 """Central configuration — loaded once, validated at startup."""
 from pathlib import Path
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     LOGS_DIR: Path = BASE_DIR / "logs"
     SCREENSHOTS_DIR: Path = BASE_DIR / "screenshots"
     BROWSER_PROFILE_DIR: Path = BASE_DIR / "browser_profile"
+    BROWSER_CHANNEL: Literal["chromium", "chrome"] = "chromium"
 
     # Zoho
     ZOHO_MAIL_URL: str = "https://workplace.mgovcloud.in/#mail_app/"

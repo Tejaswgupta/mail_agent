@@ -47,28 +47,39 @@ logger.add(
 def _launch_context(playwright) -> BrowserContext:
     temp_downloads = settings.DOWNLOADS_DIR / ".temp"
     temp_downloads.mkdir(parents=True, exist_ok=True)
-    return playwright.chromium.launch_persistent_context(
-        user_data_dir=str(settings.BROWSER_PROFILE_DIR),
-        channel="chrome",
-        headless=False,
-        no_viewport=True,
-        args=[
+
+    launch_options = {
+        "user_data_dir": str(settings.BROWSER_PROFILE_DIR),
+        "headless": False,
+        "no_viewport": True,
+        "args": [
             "--start-maximized",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-session-crashed-bubble",
             "--disable-background-timer-throttling",
             "--disable-renderer-backgrounding",
             "--disable-backgrounding-occluded-windows",
             "--disable-blink-features=AutomationControlled",
         ],
-        accept_downloads=True,
-        downloads_path=str(temp_downloads),
-    )
+        "accept_downloads": True,
+        "downloads_path": str(temp_downloads),
+    }
+    if settings.BROWSER_CHANNEL == "chrome":
+        launch_options["channel"] = "chrome"
+
+    return playwright.chromium.launch_persistent_context(**launch_options)
 
 
 def _get_or_create_page(context: BrowserContext) -> Page:
-    pages = context.pages
-    if pages:
-        return pages[0]
-    return context.new_page()
+    page = context.new_page()
+    for old_page in context.pages:
+        if old_page != page:
+            try:
+                old_page.close()
+            except Exception as exc:
+                logger.debug(f"Could not close restored browser tab: {exc}")
+    return page
 
 
 # ─────────────────────────────────────────────────────────────────────────────

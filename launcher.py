@@ -44,30 +44,12 @@ logger.add(
 # Browser management
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _chrome_executable() -> str | None:
-    """Return the system Chrome path on Windows; None elsewhere (Playwright default)."""
-    import os
-    import platform
-    if platform.system() != "Windows":
-        return None
-    candidates = [
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-    ]
-    for path in candidates:
-        if os.path.exists(path):
-            return path
-    return None  # fall back to bundled Chromium if Chrome isn't installed
-
-
 def _launch_context(playwright) -> BrowserContext:
     temp_downloads = settings.DOWNLOADS_DIR / ".temp"
     temp_downloads.mkdir(parents=True, exist_ok=True)
-    chrome_exe = _chrome_executable()
     return playwright.chromium.launch_persistent_context(
         user_data_dir=str(settings.BROWSER_PROFILE_DIR),
-        channel="chrome" if sys.platform != "win32" else None,
-        executable_path=chrome_exe,
+        channel="chrome",
         headless=False,
         no_viewport=True,
         args=[

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     BROWSER_PROFILE_DIR: Path = BASE_DIR / "browser_profile"
 
     # Zoho
-    ZOHO_MAIL_URL: str = "https://workplace.mgovcloud.in"
+    ZOHO_MAIL_URL: str = "https://workplace.mgovcloud.in/#mail_app/"
 
     model_config = {"env_file": str(BASE_DIR / ".env"), "extra": "ignore"}
 

@@ -55,9 +55,10 @@ def ensure_logged_in(page: Page) -> bool:
     logger.info("Navigating to Zoho Mail…")
     page.goto(settings.ZOHO_MAIL_URL, wait_until="domcontentloaded", timeout=60_000)
 
-    # Wait for network to go idle so any auth redirect has fully landed.
+    # Wait for DOM to settle; avoid "networkidle" since Zoho keeps WS connections
+    # alive indefinitely, so networkidle never fires and stalls the SPA boot.
     try:
-        page.wait_for_load_state("networkidle", timeout=15_000)
+        page.wait_for_load_state("domcontentloaded", timeout=10_000)
     except Exception:
         pass  # timeout is fine — just check wherever we ended up
 

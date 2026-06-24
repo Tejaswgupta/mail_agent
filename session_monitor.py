@@ -18,8 +18,11 @@ _LOGGED_IN_TITLE_PATTERN = re.compile(r"inbox|zoho mail", re.IGNORECASE)
 
 def check(page: "Page") -> bool:
     """Return True if the session has expired (i.e. NOT on the mail app)."""
+    # Avoid wait_for_load_state("networkidle") — Zoho keeps persistent WS connections
+    # open so networkidle never fires, burning 10 s on every call and interrupting
+    # the SPA's own initialization on slow Windows machines.
     try:
-        page.wait_for_load_state("networkidle", timeout=10_000)
+        page.wait_for_load_state("domcontentloaded", timeout=5_000)
     except Exception:
         pass  # check wherever we are
 

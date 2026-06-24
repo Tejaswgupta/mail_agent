@@ -214,6 +214,22 @@ def store_manifest_passengers(
     return len(rows)
 
 
+# ── Reset ────────────────────────────────────────────────────────────────────
+
+def reset_processed_emails() -> int:
+    """Delete all rows from processed_emails (and their attachments/passengers via cascade).
+    Returns the number of emails deleted."""
+    with _conn() as con:
+        count = con.execute("SELECT COUNT(*) FROM processed_emails").fetchone()[0]
+        con.executescript("""
+            DELETE FROM manifest_passengers;
+            DELETE FROM attachments;
+            DELETE FROM processed_emails;
+        """)
+    logger.warning(f"Reset: deleted {count} processed email(s) and all related records")
+    return count
+
+
 # ── Heartbeat ─────────────────────────────────────────────────────────────────
 
 def heartbeat() -> None:

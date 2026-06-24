@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 # Positive patterns — logged in if URL or title matches.
-_LOGGED_IN_URL_PATTERN = re.compile(r"workplace\.mgovcloud\.in", re.IGNORECASE)
+_LOGGED_IN_URL_PATTERN = re.compile(r"workplace\.mgovcloud\.in.*#mail_app", re.IGNORECASE)
 _LOGGED_IN_TITLE_PATTERN = re.compile(r"inbox|zoho mail", re.IGNORECASE)
 
 

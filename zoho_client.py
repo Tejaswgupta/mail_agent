@@ -1,13 +1,14 @@
 """Zoho Mail interaction via Playwright."""
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
 from loguru import logger
-from playwright.sync_api import Page, Download, TimeoutError as PWTimeoutError
+from playwright.sync_api import Page, Frame, Download, TimeoutError as PWTimeoutError
 
 from config import settings
 import session_monitor
@@ -25,6 +26,24 @@ def _screenshot(page: Page, name: str) -> None:
         logger.debug(f"Screenshot saved: {path}")
     except Exception as exc:
         logger.warning(f"Screenshot failed: {exc}")
+
+
+_MAIL_IFRAME_URL = re.compile(r"mail\.mgovcloud\.in", re.IGNORECASE)
+
+
+def _get_mail_frame(page: Page) -> Frame | None:
+    """Return the Frame for the embedded mail iframe, waiting up to 15 s for it to appear."""
+    try:
+        page.wait_for_selector("iframe#mailIframe", timeout=15_000)
+    except PWTimeoutError:
+        pass
+    logger.debug(f"Page URL: {page.url} | frames: {[f.url for f in page.frames]}")
+    frame = page.frame(url=_MAIL_IFRAME_URL)
+    if frame is None:
+        logger.warning("Mail iframe (mail.mgovcloud.in) not found — will use page directly")
+    else:
+        logger.debug(f"Mail frame found: {frame.url[:80]}")
+    return frame
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -54,6 +73,20 @@ def ensure_logged_in(page: Page) -> bool:
 
     if not session_monitor.check(page):
         logger.info("Login detected — continuing")
+        try:
+            frame = _get_mail_frame(page)
+            if frame:
+                frame.wait_for_selector(
+                    "[role='listbox'][aria-label='Email listing']",
+                    timeout=20_000,
+                )
+                logger.info("Email listing listbox ready")
+            else:
+                logger.warning("Mail iframe not found after login; inbox may still be loading")
+        except PWTimeoutError:
+            logger.warning("Email listing listbox not found after login; inbox may still be loading")
+        except Exception as exc:
+            logger.warning(f"Post-login inbox wait error: {exc}")
         return True
 
     logger.error("Login check failed after user confirmed")
@@ -93,14 +126,16 @@ def _parse_aria_label(label: str) -> dict:
 def _parse_email_rows(page: Page) -> list[dict]:
     """Parse email rows from the inbox. Returns list of dicts with email metadata."""
     emails: list[dict] = []
+    frame = _get_mail_frame(page)
+    if frame is None:
+        return emails
     try:
-        # Real Zoho UI: email list is a listbox with role=listbox
-        page.wait_for_selector("[role='listbox'][aria-label='Email listing']", timeout=15_000)
+        frame.wait_for_selector("[role='listbox'][aria-label='Email listing']", timeout=15_000)
     except PWTimeoutError:
         logger.warning("Email listing listbox not found within timeout")
         return emails
 
-    rows = page.query_selector_all("[role='listbox'][aria-label='Email listing'] [role='option']")
+    rows = frame.query_selector_all("[role='listbox'][aria-label='Email listing'] [role='option']")
     for row in rows:
         try:
             label = row.get_attribute("aria-label") or ""
@@ -111,7 +146,7 @@ def _parse_email_rows(page: Page) -> list[dict]:
             email_id = hashlib.md5(label.encode()).hexdigest()
             meta = _parse_aria_label(label)
             has_attachment = row.query_selector(
-                "button[title*='attachment' i], button[aria-label*='attachment' i]"
+                "i.msi-attachicon, button[aria-label*='attachment' i]"
             ) is not None
             emails.append({
                 "email_id": email_id,
@@ -132,12 +167,16 @@ def _parse_email_rows(page: Page) -> list[dict]:
 
 def get_inbox_emails(page: Page) -> list[dict]:
     """Navigate to inbox and return a list of email metadata dicts."""
+    frame = _get_mail_frame(page)
     try:
-        # Real Zoho UI: inbox is a treeitem in the left nav
-        inbox = page.query_selector("[role='treeitem'][aria-label*='Inbox' i]")
-        if inbox:
-            inbox.click()
-            time.sleep(2)
+        if frame:
+            inbox = frame.query_selector("[role='treeitem'][aria-label*='Inbox' i]")
+            if inbox:
+                inbox.click()
+                time.sleep(2)
+            else:
+                page.goto(settings.ZOHO_MAIL_URL, wait_until="domcontentloaded", timeout=30_000)
+                time.sleep(2)
         else:
             page.goto(settings.ZOHO_MAIL_URL, wait_until="domcontentloaded", timeout=30_000)
             time.sleep(2)
@@ -152,13 +191,16 @@ def get_inbox_emails(page: Page) -> list[dict]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def open_email(page: Page, email_id: str, row_handle=None) -> bool:
-    """Click on an email row. Prefers the stored handle, falls back to aria-label search."""
+    """Click on an email row and wait for the reading pane to navigate to it."""
+    frame = _get_mail_frame(page)
+    if frame is None:
+        return False
     try:
+        pre_url = frame.url
         if row_handle is not None:
             row_handle.click()
         else:
-            # Fallback: find by aria-label containing the email_id (not reliable — prefer handle)
-            rows = page.query_selector_all("[role='listbox'][aria-label='Email listing'] [role='option']")
+            rows = frame.query_selector_all("[role='listbox'][aria-label='Email listing'] [role='option']")
             import hashlib
             matched = next(
                 (r for r in rows if hashlib.md5((r.get_attribute("aria-label") or "").encode()).hexdigest() == email_id),
@@ -168,34 +210,75 @@ def open_email(page: Page, email_id: str, row_handle=None) -> bool:
                 logger.warning(f"Could not find email row for id {email_id}")
                 return False
             matched.click()
-        time.sleep(1)
+
+        # Wait for the frame URL to change to an individual email view (/p/<id>)
+        try:
+            frame.wait_for_function(
+                f"() => window.location.href !== {repr(pre_url)} && window.location.href.includes('/p/')",
+                timeout=10_000,
+            )
+        except PWTimeoutError:
+            # May already be on a /p/ URL (e.g. first email opened); that's fine
+            pass
+
         return True
     except Exception as exc:
         logger.warning(f"Could not open email {email_id}: {exc}")
     return False
 
 
+def dump_mail_frame_html(page: Page, label: str = "frame_dump") -> None:
+    """Save the current mail iframe HTML to screenshots dir for selector debugging."""
+    frame = _get_mail_frame(page)
+    if frame is None:
+        logger.warning("dump_mail_frame_html: mail frame not found")
+        return
+    try:
+        html = frame.content()
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = settings.SCREENSHOTS_DIR / f"{label}_{ts}.html"
+        path.write_text(html, encoding="utf-8")
+        logger.info(f"Mail frame HTML dumped to: {path}")
+    except Exception as exc:
+        logger.warning(f"dump_mail_frame_html failed: {exc}")
+
+
 def iter_attachments(page: Page, email_id: str) -> Generator[Download, None, None]:
     """Yield Playwright Download objects for every attachment in the currently open email."""
-    # Real Zoho UI: after opening an email, download buttons have title containing 'Download'
+    frame = _get_mail_frame(page)
+    if frame is None:
+        return
+
+    # Wait for the reading pane to finish loading (zmMailActions appears once email body is ready).
+    # Then check if an attachment section exists at all before waiting longer.
     try:
-        page.wait_for_selector(
-            "button[title*='Download' i], a[title*='Download' i]",
-            timeout=5_000,
-        )
+        frame.wait_for_selector(".zmMailActions", timeout=15_000)
+    except PWTimeoutError:
+        logger.debug(f"Reading pane did not load for email {email_id} — skipping attachments")
+        return
+
+    # Download buttons are inside zmattachment__actions--onhover__860ix0 — CSS-hidden until hover.
+    # Wait for the attachment items to be attached to DOM (not visible), then hover each to
+    # reveal the button before clicking.
+    item_sel = "[data-attachment-item='true']"
+    try:
+        frame.wait_for_selector(item_sel, state="attached", timeout=5_000)
     except PWTimeoutError:
         logger.debug(f"No attachments found in email {email_id}")
         return
 
-    attachment_links = page.query_selector_all(
-        "button[title*='Download' i], a[title*='Download' i]"
-    )
-    logger.info(f"Found {len(attachment_links)} attachment link(s) in email {email_id}")
+    items = frame.query_selector_all(item_sel)
+    logger.info(f"Found {len(items)} attachment(s) in email {email_id}")
 
-    for link in attachment_links:
+    for item in items:
         try:
+            item.hover()  # trigger CSS :hover to reveal the action buttons
+            btn = item.query_selector("button[data-testid='Attachment_Download_mail']")
+            if btn is None:
+                logger.warning(f"Download button not found on attachment item in {email_id}")
+                continue
             with page.expect_download(timeout=60_000) as dl_info:
-                link.click()
+                btn.click(force=True)
             yield dl_info.value
         except PWTimeoutError:
             logger.warning(f"Download timeout for an attachment in email {email_id}")

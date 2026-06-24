@@ -58,6 +58,20 @@ def run_once(page: Page) -> int:
 
         logger.info(f"Processing email: {email_id} | {email['subject']}")
 
+        if not email.get("has_attachment"):
+            logger.debug(f"No attachment indicator on email {email_id} — skipping download")
+            try:
+                storage.mark_processed(
+                    email_id=email_id,
+                    subject=email["subject"],
+                    sender=email["sender"],
+                    received_at=email["received_at"],
+                )
+                processed_count += 1
+            except Exception as exc:
+                logger.error(f"mark_processed failed for {email_id}: {exc}")
+            continue
+
         if not zoho_client.open_email(page, email_id, row_handle=email.get("_row_handle")):
             logger.warning(f"Could not open email {email_id} — skipping")
             continue

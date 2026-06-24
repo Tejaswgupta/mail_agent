@@ -29,35 +29,36 @@ jobs:
           pip install pyinstaller pyarmor
           playwright install chromium
 
-      - name: Write signing key
+      - name: Inject signing key into license_validator.py
         shell: python
         env:
           SIGNING_KEY: ${{ secrets.LICENSE_SIGNING_KEY }}
         run: |
           import os, re
           key = os.environ["SIGNING_KEY"]
-          for fname in ["license_validator.py", "generate_license.py"]:
-            with open(fname, "r", encoding="utf-8") as f:
-              src = f.read()
-            src = re.sub(
-              r'_SIGNING_KEY = b"[^"]+"',
-              f'_SIGNING_KEY = b"{key}"',
-              src
-            )
-            with open(fname, "w", encoding="utf-8") as f:
-              f.write(src)
+          with open("license_validator.py", "r", encoding="utf-8") as f:
+            src = f.read()
+          src = re.sub(r'_SIGNING_KEY = b"[^"]+"', f'_SIGNING_KEY = b"{key}"', src)
+          with open("license_validator.py", "w", encoding="utf-8") as f:
+            f.write(src)
 
       - name: Mint license key
         shell: python
+        env:
+          SIGNING_KEY: ${{ secrets.LICENSE_SIGNING_KEY }}
+          CLIENT_ID: ${{ github.event.inputs.client_id }}
+          EXPIRY: ${{ github.event.inputs.expiry }}
         run: |
-          import sys
-          sys.argv = [
-            "generate_license.py",
-            "--client", "${{ github.event.inputs.client_id }}",
-            "--expiry", "${{ github.event.inputs.expiry }}",
-            "--out",   "license.key",
-          ]
-          exec(open("generate_license.py").read())
+          import os, base64, hashlib, hmac, json
+          key = os.environ["SIGNING_KEY"].encode()
+          client_id = os.environ["CLIENT_ID"]
+          expiry = os.environ["EXPIRY"]
+          payload = json.dumps({"client_id": client_id, "expiry": expiry}, separators=(",", ":"))
+          payload_b64 = base64.b64encode(payload.encode()).decode()
+          sig = hmac.new(key, payload_b64.encode(), hashlib.sha256).hexdigest()
+          with open("license.key", "w", encoding="utf-8") as f:
+            f.write(f"{payload_b64}.{sig}\n")
+          print(f"Minted license for '{client_id}' valid until {expiry}")
 
       - name: Obfuscate source
         run: |

@@ -29,12 +29,55 @@ def _screenshot(page: Page, name: str) -> None:
 
 
 _MAIL_IFRAME_URL = re.compile(r"mail\.mgovcloud\.in", re.IGNORECASE)
+_MAIL_READY_SELECTORS = [
+    "[role='listbox'][aria-label='Email listing']",
+    "[role='listbox'][aria-label*='Email' i]",
+    "[role='treeitem'][aria-label*='Inbox' i]",
+    "button[aria-label*='Compose' i]",
+    "input[aria-label*='Search' i]",
+]
 
 
-def _get_mail_frame(page: Page) -> Frame | None:
-    """Return the Frame for the embedded mail iframe, waiting up to 15 s for it to appear."""
+def _safe_page_title(page: Page) -> str:
     try:
-        page.wait_for_selector("iframe#mailIframe", timeout=15_000)
+        return page.title() or ""
+    except Exception as exc:
+        return f"<title unavailable: {exc}>"
+
+
+def _safe_ready_state(target) -> str:
+    try:
+        return target.evaluate("document.readyState")
+    except Exception as exc:
+        return f"<readyState unavailable: {exc}>"
+
+
+def _describe_frames(page: Page) -> list[str]:
+    frames = []
+    for frame in page.frames:
+        name = ""
+        try:
+            name = frame.name
+        except Exception:
+            pass
+        ready_state = _safe_ready_state(frame)
+        frames.append(f"name={name!r} ready={ready_state!r} url={frame.url}")
+    return frames
+
+
+def _log_page_snapshot(page: Page, label: str) -> None:
+    logger.info(
+        f"{label} | url={page.url} | title={_safe_page_title(page)!r} "
+        f"| ready={_safe_ready_state(page)!r} | frames={len(page.frames)}"
+    )
+    for frame_desc in _describe_frames(page):
+        logger.debug(f"{label} frame | {frame_desc}")
+
+
+def _get_mail_frame(page: Page, timeout: int = 15_000) -> Frame | None:
+    """Return the Frame for the embedded mail iframe."""
+    try:
+        page.wait_for_selector("iframe#mailIframe", timeout=timeout)
     except PWTimeoutError:
         pass
     logger.debug(f"Page URL: {page.url} | frames: {[f.url for f in page.frames]}")
@@ -46,6 +89,59 @@ def _get_mail_frame(page: Page) -> Frame | None:
     return frame
 
 
+def _mail_ui_ready(frame: Frame) -> bool:
+    try:
+        frame.wait_for_load_state("domcontentloaded", timeout=2_000)
+    except Exception:
+        pass
+
+    for selector in _MAIL_READY_SELECTORS:
+        try:
+            if frame.query_selector(selector):
+                logger.info(f"Mail UI ready selector matched: {selector}")
+                return True
+        except Exception:
+            continue
+    logger.debug(
+        "Mail UI ready selectors not found "
+        f"| frame_url={frame.url} | ready={_safe_ready_state(frame)!r}"
+    )
+    return False
+
+
+def _wait_for_mail_ready(page: Page, timeout: int | None = None) -> bool:
+    """Wait until the post-login mail iframe has usable inbox UI."""
+    timeout = timeout or settings.ZOHO_READY_TIMEOUT_SECONDS * 1000
+    deadline = time.monotonic() + (timeout / 1000)
+    started_at = time.monotonic()
+    next_snapshot_at = started_at
+    last_frame_urls: list[str] = []
+    logger.info(f"Waiting up to {timeout // 1000}s for Zoho Mail UI readiness")
+
+    while time.monotonic() < deadline:
+        now = time.monotonic()
+        if now >= next_snapshot_at:
+            elapsed = int(now - started_at)
+            _log_page_snapshot(page, f"Zoho readiness wait elapsed={elapsed}s")
+            next_snapshot_at = now + 10
+
+        frame = _get_mail_frame(page, timeout=2_000)
+        last_frame_urls = [f.url for f in page.frames]
+        if frame and _mail_ui_ready(frame):
+            elapsed = int(time.monotonic() - started_at)
+            logger.info(f"Zoho Mail UI ready after {elapsed}s")
+            return True
+        time.sleep(2)
+
+    logger.warning(
+        "Zoho Mail UI did not become ready. "
+        f"Page URL: {page.url} | frames: {last_frame_urls}"
+    )
+    _screenshot(page, "mail_not_ready")
+    dump_mail_frame_html(page, "mail_not_ready")
+    return False
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Login / session management
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +149,9 @@ def _get_mail_frame(page: Page) -> Frame | None:
 def ensure_logged_in(page: Page) -> bool:
     """Navigate to Zoho Mail, wait for user to log in if needed. Returns True on success."""
     logger.info("Navigating to Zoho Mail…")
+    _log_page_snapshot(page, "Before Zoho navigation")
     page.goto(settings.ZOHO_MAIL_URL, wait_until="domcontentloaded", timeout=60_000)
+    _log_page_snapshot(page, "After Zoho navigation")
 
     # Wait for DOM to settle; avoid "networkidle" since Zoho keeps WS connections
     # alive indefinitely, so networkidle never fires and stalls the SPA boot.
@@ -61,34 +159,22 @@ def ensure_logged_in(page: Page) -> bool:
         page.wait_for_load_state("domcontentloaded", timeout=10_000)
     except Exception:
         pass  # timeout is fine — just check wherever we ended up
+    _log_page_snapshot(page, "After Zoho DOM settle")
 
     if not session_monitor.check(page):
-        logger.info("Already logged in")
-        return True
+        logger.info("Already logged in — waiting for mail UI")
+        return _wait_for_mail_ready(page)
 
     logger.info("Login required — waiting for manual login…")
     import notifier
     notifier.send("🔐 Zoho Mail login required. Please open the browser and sign in.")
 
     input("Log in to Zoho Mail in the browser, then press Enter here to continue…")
+    _log_page_snapshot(page, "After manual login confirmation")
 
     if not session_monitor.check(page):
-        logger.info("Login detected — continuing")
-        try:
-            frame = _get_mail_frame(page)
-            if frame:
-                frame.wait_for_selector(
-                    "[role='listbox'][aria-label='Email listing']",
-                    timeout=20_000,
-                )
-                logger.info("Email listing listbox ready")
-            else:
-                logger.warning("Mail iframe not found after login; inbox may still be loading")
-        except PWTimeoutError:
-            logger.warning("Email listing listbox not found after login; inbox may still be loading")
-        except Exception as exc:
-            logger.warning(f"Post-login inbox wait error: {exc}")
-        return True
+        logger.info("Login detected — waiting for mail UI")
+        return _wait_for_mail_ready(page)
 
     logger.error("Login check failed after user confirmed")
     _screenshot(page, "login_failed")

@@ -182,6 +182,13 @@ python launcher.py
 **Chrome opens but goes to the login page every time**
 → The `browser_profile\` folder was deleted. Log in once and the session will be saved again.
 
+**The browser opens but websites keep loading forever**
+→ Open `.env` in Notepad and add:
+```
+BROWSER_PROXY_MODE=system
+```
+Save the file and restart the agent. By default the agent bypasses Windows proxy auto-detect because it can make Playwright Chromium hang on some machines. If your network requires the Windows system proxy, use `system`.
+
 **"No module named …" (source only)**
 → Run `pip install -r requirements.txt` again in the `cmd` window.
 

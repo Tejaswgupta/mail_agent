@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from pathlib import Path
 
 from loguru import logger
 from playwright.sync_api import Page
@@ -76,17 +75,7 @@ def run_once(page: Page) -> int:
             logger.warning(f"Could not open email {email_id} — skipping")
             continue
 
-        for download in zoho_client.iter_attachments(page, email_id):
-            try:
-                meta = attachment_processor.process_download(download, email_id)
-                if meta:
-                    logger.info(f"Attachment processed: {meta['file_name']} ({meta['file_size']} bytes)")
-                else:
-                    logger.warning(f"process_download returned None for an attachment in {email_id}")
-            except Exception as exc:
-                logger.error(f"Attachment processing error ({email_id}): {exc}")
-                _screenshot(page, f"attach_error_{email_id}")
-
+        # Mark processed before downloading so the FK constraint on attachments is satisfied.
         try:
             storage.mark_processed(
                 email_id=email_id,
@@ -97,6 +86,18 @@ def run_once(page: Page) -> int:
             processed_count += 1
         except Exception as exc:
             logger.error(f"mark_processed failed for {email_id}: {exc}")
+            continue
+
+        for download in zoho_client.iter_attachments(page, email_id):
+            try:
+                meta = attachment_processor.process_download(download, email_id)
+                if meta:
+                    logger.info(f"Attachment processed: {meta['file_name']} ({meta['file_size']} bytes)")
+                else:
+                    logger.warning(f"process_download returned None for an attachment in {email_id}")
+            except Exception as exc:
+                logger.error(f"Attachment processing error ({email_id}): {exc}")
+                _screenshot(page, f"attach_error_{email_id}")
 
     return processed_count
 

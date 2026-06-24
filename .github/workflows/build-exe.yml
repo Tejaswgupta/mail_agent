@@ -93,10 +93,10 @@ jobs:
         run: |
           $out = "release"
           New-Item -ItemType Directory -Force -Path $out
-          Copy-Item "dist\mail_agent.exe"  $out
-          Copy-Item "license.key"          $out
-          Copy-Item ".env.example"         $out
-          Copy-Item "INSTALL.md"           $out
+          Copy-Item "dist\mail_agent.exe" "$out\mail_agent.exe"
+          Copy-Item "license.key"         "$out\license.key"
+          Copy-Item ".env.example"        "$out\.env.example"
+          Copy-Item "INSTALL.md"          "$out\INSTALL.md"
           Compress-Archive -Path "$out\*" -DestinationPath "mail_agent_${{ github.event.inputs.client_id }}.zip"
 
       - name: Upload artifact

@@ -1,6 +1,4 @@
 """Application entry point — launches Chrome with a persistent profile and starts the watcher."""
-from __future__ import annotations
-
 import signal
 import sys
 import time

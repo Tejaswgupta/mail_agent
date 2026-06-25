@@ -1,5 +1,4 @@
 """Download attachments, parse xlsx/pdf, store everything in SQLite."""
-from __future__ import annotations
 
 import hashlib
 import os

@@ -1,5 +1,4 @@
 """Core inbox-watching loop — polls Zoho Mail every POLL_INTERVAL_SECONDS."""
-from __future__ import annotations
 
 import time
 from datetime import datetime

@@ -5,7 +5,6 @@ Supported carriers and their source formats:
   IX  Air India Exp – .xls,  43 cols, header row only
   TG  Thai Airways  – .xls,  24 cols, header row only
 """
-from __future__ import annotations
 
 import datetime
 from pathlib import Path

@@ -1,5 +1,4 @@
 """Local client dashboard for blacklist review, alerts, and passenger history."""
-from __future__ import annotations
 
 import argparse
 import json

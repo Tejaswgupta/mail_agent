@@ -1,5 +1,4 @@
 """Detect Zoho session expiry / login pages in a Playwright page."""
-from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING

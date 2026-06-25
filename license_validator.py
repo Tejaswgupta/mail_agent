@@ -1,5 +1,4 @@
 """License validation — validate license.key before the app starts."""
-from __future__ import annotations
 
 import base64
 import hashlib

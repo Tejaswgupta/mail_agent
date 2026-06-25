@@ -1,5 +1,4 @@
 """SQLite storage — schema creation, email dedup, attachment records, parsed data."""
-from __future__ import annotations
 
 import json
 import sqlite3

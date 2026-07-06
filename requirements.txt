@@ -7,5 +7,6 @@ python-dotenv>=1.0.1
 requests>=2.31.0
 openpyxl>=3.1.2
 xlrd<2
+pdfplumber>=0.11.0
 # Windows-only: console window management when running as a .exe
 pywin32>=306; sys_platform == "win32"

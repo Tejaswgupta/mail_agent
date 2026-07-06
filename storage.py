@@ -417,10 +417,52 @@ def _manifest_select_sql(where_sql: str = "") -> str:
     """
 
 
+def get_stats() -> dict[str, Any]:
+    with _conn() as con:
+        pax = con.execute("SELECT COUNT(*) FROM manifest_passengers").fetchone()[0]
+        bl = con.execute("SELECT COUNT(*) FROM blacklist_entries").fetchone()[0]
+    return {"passenger_count": pax, "blacklist_count": bl}
+
+
+def list_meta_values() -> dict[str, list[str]]:
+    """Return distinct field values for populating filter dropdowns."""
+    def _distinct(con: sqlite3.Connection, col: str) -> list[str]:
+        return [
+            str(r[0]) for r in con.execute(
+                f"SELECT DISTINCT {col} FROM manifest_passengers"
+                f" WHERE {col} IS NOT NULL AND trim({col}) != '' ORDER BY {col}"
+            ).fetchall()
+        ]
+    with _conn() as con:
+        return {
+            "airline_codes":   _distinct(con, "airline_code"),
+            "manifest_types":  _distinct(con, "manifest_type"),
+            "origins":         _distinct(con, "origin"),
+            "destinations":    _distinct(con, "destination"),
+            "cabin_classes":   _distinct(con, "cabin_class"),
+            "nationalities":   _distinct(con, "nationality"),
+            "passenger_types": _distinct(con, "passenger_type"),
+        }
+
+
 def list_manifest_passengers(
     *,
     query: str | None = None,
     flight_date: str | None = None,
+    flight_date_from: str | None = None,
+    flight_date_to: str | None = None,
+    airline_code: str | None = None,
+    manifest_type: str | None = None,
+    origin: str | None = None,
+    destination: str | None = None,
+    flight_number: str | None = None,
+    cabin_class: str | None = None,
+    nationality: str | None = None,
+    passenger_type: str | None = None,
+    min_bags: int | None = None,
+    max_bags: int | None = None,
+    min_weight: float | None = None,
+    max_weight: float | None = None,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
     clauses: list[str] = []
@@ -428,6 +470,48 @@ def list_manifest_passengers(
     if flight_date:
         clauses.append("mp.flight_date = ?")
         params.append(flight_date)
+    if flight_date_from:
+        clauses.append("mp.flight_date >= ?")
+        params.append(flight_date_from)
+    if flight_date_to:
+        clauses.append("mp.flight_date <= ?")
+        params.append(flight_date_to)
+    if airline_code:
+        clauses.append("mp.airline_code = ?")
+        params.append(airline_code)
+    if manifest_type:
+        clauses.append("mp.manifest_type = ?")
+        params.append(manifest_type)
+    if origin:
+        clauses.append("upper(trim(mp.origin)) = upper(trim(?))")
+        params.append(origin)
+    if destination:
+        clauses.append("upper(trim(mp.destination)) = upper(trim(?))")
+        params.append(destination)
+    if flight_number:
+        clauses.append("mp.flight_number LIKE ?")
+        params.append(f"%{flight_number.strip()}%")
+    if cabin_class:
+        clauses.append("mp.cabin_class = ?")
+        params.append(cabin_class)
+    if nationality:
+        clauses.append("mp.nationality LIKE ?")
+        params.append(f"%{nationality.strip()}%")
+    if passenger_type:
+        clauses.append("mp.passenger_type = ?")
+        params.append(passenger_type)
+    if min_bags is not None:
+        clauses.append("mp.no_of_bags >= ?")
+        params.append(min_bags)
+    if max_bags is not None:
+        clauses.append("mp.no_of_bags <= ?")
+        params.append(max_bags)
+    if min_weight is not None:
+        clauses.append("CAST(mp.baggage_weight AS REAL) >= ?")
+        params.append(min_weight)
+    if max_weight is not None:
+        clauses.append("CAST(mp.baggage_weight AS REAL) <= ?")
+        params.append(max_weight)
     if query:
         like = f"%{query.strip()}%"
         clauses.append(

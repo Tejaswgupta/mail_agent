@@ -37,7 +37,7 @@ def _parse_and_store(attachment_id: str, path: Path) -> None:
     """Dispatch to the right parser based on file extension."""
     suffix = path.suffix.lower()
 
-    if suffix in (".xlsx", ".xls"):
+    if suffix in (".xlsx", ".xls", ".csv", ".pdf"):
         manifest_result = manifest_normalizer.normalize(path)
         if manifest_result is not None:
             airline_code, manifest_type, rows = manifest_result

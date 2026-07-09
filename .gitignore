@@ -25,3 +25,4 @@ generate_license.py
 
 # macOS
 .DS_Store
+build

@@ -9,10 +9,18 @@ on:
       expiry:
         description: "License expiry date (YYYY-MM-DD)"
         required: true
+  push:
+    branches: [votum]
+    paths:
+      - "mail_agent/**"
 
 jobs:
   build:
     runs-on: windows-latest
+
+    env:
+      CLIENT_ID: ${{ github.event.inputs.client_id || 'ci-build' }}
+      EXPIRY: ${{ github.event.inputs.expiry || '2099-12-31' }}
 
     steps:
       - name: Checkout
@@ -46,8 +54,8 @@ jobs:
         shell: python
         env:
           SIGNING_KEY: ${{ secrets.LICENSE_SIGNING_KEY }}
-          CLIENT_ID: ${{ github.event.inputs.client_id }}
-          EXPIRY: ${{ github.event.inputs.expiry }}
+          CLIENT_ID: ${{ env.CLIENT_ID }}
+          EXPIRY: ${{ env.EXPIRY }}
         run: |
           import os, base64, hashlib, hmac, json
           key = os.environ["SIGNING_KEY"].encode()
@@ -97,11 +105,11 @@ jobs:
           Copy-Item "license.key"         "$out\license.key"
           Copy-Item ".env.example"        "$out\.env.example"
           Copy-Item "INSTALL.md"          "$out\INSTALL.md"
-          Compress-Archive -Path "$out\*" -DestinationPath "mail_agent_${{ github.event.inputs.client_id }}.zip"
+          Compress-Archive -Path "$out\*" -DestinationPath "mail_agent_${{ env.CLIENT_ID }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mail_agent_${{ github.event.inputs.client_id }}
-          path: mail_agent_${{ github.event.inputs.client_id }}.zip
+          name: mail_agent_${{ env.CLIENT_ID }}
+          path: mail_agent_${{ env.CLIENT_ID }}.zip
           retention-days: 30

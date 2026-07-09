@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     VOTUM_SUPABASE_KEY: str = ""
     VOTUM_USER_ID: str = ""
     VOTUM_AI_API_URL: str = "https://api.thevotum.com/extract_task_from_email/"
+    VOTUM_API_ACCESS_TOKEN: str = ""
 
     model_config = {"env_file": str(BASE_DIR / ".env"), "extra": "ignore"}
 

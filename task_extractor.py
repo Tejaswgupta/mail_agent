@@ -86,9 +86,11 @@ def _cap(text: str) -> str:
 
 def _call_ai_api(text: str) -> dict:
     try:
+        headers = {"x-api-key": settings.VOTUM_API_ACCESS_TOKEN} if settings.VOTUM_API_ACCESS_TOKEN else {}
         resp = requests.post(
             settings.VOTUM_AI_API_URL,
             json={"text": text},
+            headers=headers,
             timeout=30,
         )
         resp.raise_for_status()
@@ -111,6 +113,11 @@ def run(page: Page) -> None:
     if not settings.VOTUM_USER_ID:
         logger.error("VOTUM_USER_ID must be set in .env")
         notifier.send("❌ Task extraction failed: VOTUM_USER_ID not configured")
+        return
+
+    if not settings.VOTUM_API_ACCESS_TOKEN:
+        logger.error("VOTUM_API_ACCESS_TOKEN must be set in .env")
+        notifier.send("❌ Task extraction failed: VOTUM_API_ACCESS_TOKEN not configured")
         return
 
     emails = zoho_client.get_inbox_emails(page)

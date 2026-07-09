@@ -105,20 +105,26 @@ def run(page: Page) -> None:
     logger.info("Task extraction mode starting")
     notifier.send("🔍 Task extraction starting…")
 
+    # If Supabase creds are missing, VOTUM_SUPABASE_URL/KEY must be pre-set in .env
+    # (they are infrastructure creds, not per-user). Fail fast if absent.
     if not settings.VOTUM_SUPABASE_URL or not settings.VOTUM_SUPABASE_KEY:
         logger.error("VOTUM_SUPABASE_URL and VOTUM_SUPABASE_KEY must be set in .env")
         notifier.send("❌ Task extraction failed: Supabase credentials not configured")
-        return
-
-    if not settings.VOTUM_USER_ID:
-        logger.error("VOTUM_USER_ID must be set in .env")
-        notifier.send("❌ Task extraction failed: VOTUM_USER_ID not configured")
         return
 
     if not settings.VOTUM_API_ACCESS_TOKEN:
         logger.error("VOTUM_API_ACCESS_TOKEN must be set in .env")
         notifier.send("❌ Task extraction failed: VOTUM_API_ACCESS_TOKEN not configured")
         return
+
+    # User/workspace IDs come from the login wizard — run it if missing
+    if not settings.VOTUM_USER_ID or not settings.VOTUM_WORKSPACE_ID:
+        logger.info("Votum user credentials missing — launching setup wizard")
+        notifier.send("🔐 Opening Votum login in your browser…")
+        import votum_setup
+        if not votum_setup.run_wizard():
+            notifier.send("❌ Votum login failed — task extraction aborted")
+            return
 
     emails = zoho_client.get_inbox_emails(page)
     if not emails:
@@ -159,7 +165,9 @@ def run(page: Page) -> None:
         tasks = ai_result.get("tasks") or []
 
         if tasks and ai_result.get("requires_action"):
-            supabase_client.save_suggested_tasks(tasks, email_id, settings.VOTUM_USER_ID)
+            supabase_client.save_suggested_tasks(
+                tasks, email_id, settings.VOTUM_USER_ID, settings.VOTUM_WORKSPACE_ID
+            )
             total_tasks += len(tasks)
             notifier.send(
                 f"✅ {len(tasks)} task(s) from: {email['subject']}\n"

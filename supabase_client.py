@@ -20,9 +20,12 @@ def is_task_extracted(email_id: str) -> bool:
         return False
 
 
-def save_suggested_tasks(tasks: list[dict], email_id: str, user_id: str) -> None:
+def save_suggested_tasks(tasks: list[dict], email_id: str, user_id: str, workspace_id: str) -> None:
     """Insert extracted tasks into votum_suggested_tasks."""
-    rows = [{"task_details": task, "user_id": user_id, "email_id": email_id} for task in tasks]
+    rows = [
+        {"task_details": task, "user_id": user_id, "email_id": email_id, "workspace_id": workspace_id}
+        for task in tasks
+    ]
     try:
         _client().table("votum_suggested_tasks").insert(rows).execute()
         logger.info(f"Saved {len(rows)} suggested task(s) for email {email_id}")

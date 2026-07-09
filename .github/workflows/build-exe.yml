@@ -23,10 +23,17 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pyinstaller pyarmor
+          pip install nuitka ordered-set zstandard
           playwright install chromium
 
       - name: Inject signing key into license_validator.py
@@ -60,33 +67,33 @@ jobs:
             f.write(f"{payload_b64}.{sig}\n")
           print(f"Minted license for '{client_id}' valid until {expiry}")
 
-      - name: Obfuscate source
+      - name: Build EXE with Nuitka
         run: |
-          pyarmor gen `
-            license_validator.py `
-            storage.py `
-            watcher.py `
-            zoho_client.py `
-            attachment_processor.py `
-            manifest_normalizer.py `
-            session_monitor.py `
-            notifier.py `
-            client_interface.py `
-            launcher.py `
-            config.py `
-            keep_awake.py `
-            __init__.py
-
-      - name: Build EXE
-        run: |
-          pyinstaller `
+          python -m nuitka `
             --onefile `
-            --name mail_agent `
-            --add-data "dist\pyarmor_runtime_000000;pyarmor_runtime_000000" `
-            --add-data "migrations;migrations" `
-            --add-data "mail.html;." `
-            --add-data "mail_with_attachment_body.html;." `
-            dist\launcher.py
+            --standalone `
+            --assume-yes-for-downloads `
+            --windows-console-mode=attach `
+            --windows-company-name="DRI" `
+            --windows-product-name="Mail Agent" `
+            --windows-file-version="1.0.0.0" `
+            --windows-product-version="1.0.0.0" `
+            --windows-file-description="DRI Mail Agent" `
+            --onefile-tempdir-spec="{CACHE_DIR}\DRI\mail_agent" `
+            --include-package=playwright `
+            --include-package=pydantic `
+            --include-package=pydantic_settings `
+            --include-package=loguru `
+            --include-package=supabase `
+            --include-package=gotrue `
+            --include-package=httpx `
+            --include-package=requests `
+            --include-package=openpyxl `
+            --include-package=pdfplumber `
+            --include-data-dir=migrations=migrations `
+            --output-dir=dist `
+            --output-filename=mail_agent.exe `
+            launcher.py
 
       - name: Package for client
         shell: pwsh
@@ -96,7 +103,7 @@ jobs:
           Copy-Item "dist\mail_agent.exe" "$out\mail_agent.exe"
           Copy-Item "license.key"         "$out\license.key"
           Copy-Item ".env.example"        "$out\.env.example"
-          Copy-Item "INSTALL.md"          "$out\INSTALL.md"
+          if (Test-Path "INSTALL.md") { Copy-Item "INSTALL.md" "$out\INSTALL.md" }
           Compress-Archive -Path "$out\*" -DestinationPath "mail_agent_${{ github.event.inputs.client_id }}.zip"
 
       - name: Upload artifact

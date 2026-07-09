@@ -313,6 +313,57 @@ def open_email(page: Page, email_id: str, row_handle=None) -> bool:
     return False
 
 
+def get_email_body(page: Page) -> str:
+    """Return the plain text of the currently-open email's reading pane."""
+    frame = _get_mail_frame(page)
+    if frame is None:
+        return ""
+
+    # Wait for reading pane to be ready (same gate used by iter_attachments)
+    try:
+        frame.wait_for_selector(".zmMailActions", timeout=15_000)
+    except PWTimeoutError:
+        logger.debug("get_email_body: reading pane did not load")
+        return ""
+
+    # Try candidates in order — the first one that exists wins
+    selectors = [
+        ".zmMailReadMessagePane",
+        ".zmail-readpane-body",
+        ".zmMailViewPane",
+        ".mail-view-pane",
+    ]
+
+    # Some Zoho deployments render the body inside a nested content iframe
+    for iframe_sel in ("iframe#mailcontent", "iframe[id*='mailcontent']"):
+        try:
+            el = frame.query_selector(iframe_sel)
+            if el:
+                child_frame = el.content_frame()
+                if child_frame:
+                    try:
+                        text = child_frame.locator("body").inner_text(timeout=5_000)
+                        if text.strip():
+                            return text.strip()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    for sel in selectors:
+        try:
+            el = frame.query_selector(sel)
+            if el:
+                text = el.inner_text()
+                if text.strip():
+                    return text.strip()
+        except Exception:
+            continue
+
+    logger.debug("get_email_body: no selector matched reading pane content")
+    return ""
+
+
 def dump_mail_frame_html(page: Page, label: str = "frame_dump") -> None:
     """Save the current mail iframe HTML to screenshots dir for selector debugging."""
     frame = _get_mail_frame(page)

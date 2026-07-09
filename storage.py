@@ -209,6 +209,17 @@ def record_attachment(
     return aid
 
 
+# ── Task extraction helpers ───────────────────────────────────────────────────
+
+def list_attachments_for_email(email_id: str) -> list[dict]:
+    with _conn() as con:
+        rows = con.execute(
+            "SELECT file_name, local_path FROM attachments WHERE email_id = ?",
+            (email_id,),
+        ).fetchall()
+    return [{"file_name": r["file_name"], "local_path": r["local_path"]} for r in rows]
+
+
 # ── Parsed data storage ───────────────────────────────────────────────────────
 
 # ── Passenger manifests ──────────────────────────────────────────────────────

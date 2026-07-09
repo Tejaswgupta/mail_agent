@@ -1,4 +1,5 @@
 """Application entry point — launches Chrome with a persistent profile and starts the watcher."""
+import argparse
 import signal
 import sys
 import time
@@ -188,6 +189,14 @@ CRASH_BACKOFF = 30  # seconds
 
 
 def run() -> None:
+    parser = argparse.ArgumentParser(description="Mail agent")
+    parser.add_argument(
+        "--extract-tasks",
+        action="store_true",
+        help="One-shot: extract tasks from new inbox emails then exit",
+    )
+    args = parser.parse_args()
+
     license_validator.validate()
     keep_awake.start()
     logger.info("Application starting")
@@ -230,7 +239,12 @@ def run() -> None:
                     continue
 
                 crash_count = 0  # reset on successful login
-                watcher.watch(page)
+                if args.extract_tasks:
+                    import task_extractor
+                    task_extractor.run(page)
+                    break  # one-shot: exit the crash-recovery loop cleanly
+                else:
+                    watcher.watch(page)
 
         except KeyboardInterrupt:
             logger.info("Interrupted by user — shutting down")

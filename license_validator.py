@@ -14,7 +14,9 @@ from loguru import logger
 # Generate your own with: python -c "import secrets; print(secrets.token_hex(32))"
 _SIGNING_KEY = b"3551436b93a4bf1eaeaf334efd1ea75b903538170cb5a9cb8a0ca86d78814700"
 
-_LICENSE_FILE = Path(__file__).parent / "license.key"
+import sys as _sys
+_BASE = Path(_sys.executable).parent if getattr(_sys, "frozen", False) or "__compiled__" in dir() else Path(__file__).parent
+_LICENSE_FILE = _BASE / "license.key"
 
 
 class LicenseError(Exception):

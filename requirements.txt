@@ -10,3 +10,4 @@ xlrd<2
 pdfplumber>=0.11.0
 # Windows-only: console window management when running as a .exe
 pywin32>=306; sys_platform == "win32"
+supabase>=2.0.0

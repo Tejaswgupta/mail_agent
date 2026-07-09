@@ -5,7 +5,8 @@ from typing import Literal
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
-BASE_DIR = Path(__file__).parent
+import sys as _sys
+BASE_DIR = Path(_sys.executable).parent if getattr(_sys, "frozen", False) or "__compiled__" in dir() else Path(__file__).parent
 
 
 class Settings(BaseSettings):
@@ -31,6 +32,12 @@ class Settings(BaseSettings):
 
     # Zoho
     ZOHO_MAIL_URL: str = "https://workplace.mgovcloud.in/#mail_app/"
+
+    # Votum task extraction
+    VOTUM_SUPABASE_URL: str = ""
+    VOTUM_SUPABASE_KEY: str = ""
+    VOTUM_USER_ID: str = ""
+    VOTUM_AI_API_URL: str = "https://api.thevotum.com/extract_task_from_email/"
 
     model_config = {"env_file": str(BASE_DIR / ".env"), "extra": "ignore"}
 

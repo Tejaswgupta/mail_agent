@@ -51,12 +51,12 @@ if (-not $SigningKey) {
     # Generate new key
     else {
         Write-Host "    No signing key found - generating new one..." -ForegroundColor Yellow
-        
-        $pythonScript = @"
+
+        $pythonScript = @'
 import secrets, base64
 key = secrets.token_bytes(32)
 print(base64.b64encode(key).decode())
-"@
+'@
         
         $SigningKey = python -c $pythonScript
         
@@ -153,7 +153,7 @@ Write-Host "`n==> Generating license key..." -ForegroundColor Cyan
 Write-Host "    Client ID: $ClientId" -ForegroundColor Gray
 Write-Host "    Expiry: $Expiry" -ForegroundColor Gray
 
-$pythonScript = @"
+$pythonScript = @'
 import os, base64, hashlib, hmac, json
 
 key = os.environ['SIGNING_KEY'].encode()
@@ -168,7 +168,7 @@ with open('license.key', 'w', encoding='utf-8') as f:
     f.write(f'{payload_b64}.{sig}\n')
 
 print(f"License key generated: license.key")
-"@
+'@
 
 $env:SIGNING_KEY = $SigningKey
 $env:CLIENT_ID = $ClientId

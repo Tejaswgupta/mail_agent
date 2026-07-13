@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     LOGS_DIR: Path = BASE_DIR / "logs"
     SCREENSHOTS_DIR: Path = BASE_DIR / "screenshots"
     BROWSER_PROFILE_DIR: Path = BASE_DIR / "browser_profile"
-    BROWSER_CHANNEL: Literal["chromium", "chrome"] = "chromium"
+    BROWSER_CHANNEL: Literal["chromium", "chrome"] = "chrome"
     BROWSER_PROXY_MODE: Literal["direct", "system"] = "direct"
     BROWSER_CONNECTIVITY_CHECK_URL: str = "https://example.com/"
     ZOHO_READY_TIMEOUT_SECONDS: int = 120

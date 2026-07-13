@@ -216,7 +216,6 @@ $nuitkaArgs = @(
     "--include-package=pydantic_settings",
     "--include-package=loguru",
     "--include-package=supabase",
-    "--include-package=gotrue",
     "--include-package=httpx",
     "--include-package=requests",
     "--include-package=openpyxl",

@@ -52,13 +52,16 @@ if (-not $SigningKey) {
     else {
         Write-Host "    No signing key found - generating new one..." -ForegroundColor Yellow
 
-        $pythonScript = @'
+        $tempScript = "generate_key_temp.py"
+        $pythonCode = @"
 import secrets, base64
 key = secrets.token_bytes(32)
 print(base64.b64encode(key).decode())
-'@
-        
-        $SigningKey = python -c $pythonScript
+"@
+
+        Set-Content -Path $tempScript -Value $pythonCode -Encoding UTF8
+        $SigningKey = python $tempScript
+        Remove-Item $tempScript -ErrorAction SilentlyContinue
         
         if (-not $SigningKey) {
             Write-Host "ERROR: Failed to generate signing key" -ForegroundColor Red
@@ -153,7 +156,9 @@ Write-Host "`n==> Generating license key..." -ForegroundColor Cyan
 Write-Host "    Client ID: $ClientId" -ForegroundColor Gray
 Write-Host "    Expiry: $Expiry" -ForegroundColor Gray
 
-$pythonScript = @'
+# Write Python script to temporary file to avoid escaping issues
+$tempScript = "generate_license_temp.py"
+$pythonCode = @"
 import os, base64, hashlib, hmac, json
 
 key = os.environ['SIGNING_KEY'].encode()
@@ -167,14 +172,18 @@ sig = hmac.new(key, payload_b64.encode(), hashlib.sha256).hexdigest()
 with open('license.key', 'w', encoding='utf-8') as f:
     f.write(f'{payload_b64}.{sig}\n')
 
-print(f"License key generated: license.key")
-'@
+print('License key generated: license.key')
+"@
+
+Set-Content -Path $tempScript -Value $pythonCode -Encoding UTF8
 
 $env:SIGNING_KEY = $SigningKey
 $env:CLIENT_ID = $ClientId
 $env:EXPIRY = $Expiry
 
-python -c $pythonScript
+python $tempScript
+
+Remove-Item $tempScript -ErrorAction SilentlyContinue
 
 if (-not (Test-Path "license.key")) {
     Write-Host "ERROR: Failed to generate license.key" -ForegroundColor Red

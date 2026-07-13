@@ -116,7 +116,7 @@ pip install -q -r requirements.txt
 pip install -q nuitka ordered-set zstandard
 
 Write-Host "    Installing Playwright Chromium..." -ForegroundColor Gray
-playwright install chromium --quiet
+python -m playwright install chromium
 
 Write-Host "    Dependencies installed" -ForegroundColor Green
 

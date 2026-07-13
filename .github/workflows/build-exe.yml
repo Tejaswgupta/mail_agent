@@ -34,7 +34,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install nuitka ordered-set zstandard
-          playwright install chromium
+          python -m playwright install chromium
 
       - name: Inject signing key into license_validator.py
         shell: python

@@ -115,8 +115,19 @@ Write-Host "    All prerequisites OK" -ForegroundColor Green
 Write-Host "`n==> Installing dependencies..." -ForegroundColor Cyan
 
 Write-Host "    Installing Python packages..." -ForegroundColor Gray
-python -m pip install -q -r requirements.txt
-python -m pip install -q pyinstaller
+python -m pip install -r requirements.txt
+
+Write-Host "    Installing PyInstaller..." -ForegroundColor Gray
+python -m pip install pyinstaller
+
+# Verify PyInstaller is installed
+try {
+    python -m PyInstaller --version | Out-Null
+    Write-Host "    PyInstaller installed successfully" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: PyInstaller installation failed" -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "    Installing Playwright Chromium..." -ForegroundColor Gray
 python -m playwright install chromium
@@ -207,7 +218,7 @@ if (Test-Path "build") {
     Remove-Item "build" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-python -m pyinstaller `
+python -m PyInstaller `
     --onefile `
     --console `
     --name mail_agent `

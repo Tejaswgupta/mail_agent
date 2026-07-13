@@ -209,6 +209,7 @@ Write-Host "    License key generated: license.key" -ForegroundColor Green
 
 Write-Host "`n==> Building EXE with PyInstaller..." -ForegroundColor Cyan
 Write-Host "    This takes 2-3 minutes..." -ForegroundColor Yellow
+Write-Host "    NOTE: EXE will use system Chrome (not bundled)" -ForegroundColor Gray
 
 # Clean previous builds
 if (Test-Path "dist") {

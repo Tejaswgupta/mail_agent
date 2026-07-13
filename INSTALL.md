@@ -9,7 +9,7 @@
 |                        | **Executable (recommended)** | **From source** |
 | ---------------------- | ---------------------------- | --------------- |
 | Needs Python installed | No                           | Yes             |
-| Needs Chrome installed | No                           | No              |
+| Needs Chrome installed | Yes                          | Yes             |
 | Setup time             | ~2 minutes                   | ~15 minutes     |
 | Who should use this    | End users                    | Developers      |
 
@@ -18,6 +18,7 @@
 ## What you need (both options)
 
 - A Windows 10 or Windows 11 computer
+- **Google Chrome** browser installed ([download here](https://www.google.com/chrome/))
 - Your Zoho Mail login credentials
 - A valid **`license.key`** file (provided by your vendor)
 
@@ -85,8 +86,10 @@ POLL_INTERVAL_SECONDS=180
 
 ### Step 4 — Run it
 
+> **Important:** Make sure Google Chrome is installed before running the agent.
+
 1. Double-click **`mail_agent.exe`**
-2. A black window opens, then a **browser window** launches automatically
+2. A black window opens, then a **Chrome browser window** launches automatically
 3. Log in to Zoho Mail — including any OTP or two-factor code
 4. Once you are in your inbox, the agent takes over
 
@@ -217,6 +220,9 @@ The agent will print `License OK — client='...' valid until ...` before starti
 
 **"Windows protected your PC" warning when opening the exe**
 → Click **"More info"** then **"Run anyway"**. This appears because the exe is not code-signed.
+
+**"Chrome executable not found" or browser doesn't launch**
+→ Install Google Chrome from [google.com/chrome](https://www.google.com/chrome/). The agent uses your system's Chrome browser.
 
 **Chrome opens but goes to the login page every time**
 → The `browser_profile\` folder was deleted. Log in once and the session will be saved again.

@@ -21,8 +21,20 @@ venv/
 # Secrets
 .env
 license.key
+.signing_key
 generate_license.py
+
+# Build artifacts
+build/
+dist/
+release/
+*.zip
+*.exe
+nuitka-crash-report.xml
+*.build/
+*.onefile-build/
+*.dist/
+license_validator.py.bak
 
 # macOS
 .DS_Store
-build

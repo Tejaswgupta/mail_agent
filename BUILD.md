@@ -15,28 +15,14 @@ This document explains how to build `mail_agent.exe` from source.
 
 ## Quick Start
 
-1. **Set your signing key** (one-time setup):
-   ```powershell
-   $env:LICENSE_SIGNING_KEY = "your-base64-signing-key-here"
-   ```
-
-   To persist across sessions, add it to your PowerShell profile:
-   ```powershell
-   notepad $PROFILE
-   ```
-   Add this line:
-   ```powershell
-   $env:LICENSE_SIGNING_KEY = "your-base64-signing-key-here"
-   ```
-
-2. **Run the build script**:
+1. **Run the build script** (it auto-generates the signing key on first run):
    ```powershell
    .\build.ps1 -ClientId "AcmeCorp" -Expiry "2027-12-31"
    ```
 
-3. **Wait 10-15 minutes** (first build only; subsequent builds are faster)
+2. **Wait 10-15 minutes** (first build only; subsequent builds are faster)
 
-4. **Find your files**:
+3. **Find your files**:
    - `dist\mail_agent.exe` — the standalone executable
    - `license.key` — the generated license file
    - `mail_agent_AcmeCorp.zip` — ready-to-ship package
@@ -45,20 +31,29 @@ This document explains how to build `mail_agent.exe` from source.
 
 ## What the Script Does
 
-1. ✅ Validates Python and required files
-2. 📦 Installs dependencies (pip packages, Playwright)
-3. 🔑 Injects the signing key into `license_validator.py`
-4. 🎫 Generates a signed license key for the client
-5. 🏗️ Compiles the EXE with Nuitka (bundles Python + all dependencies)
-6. 📁 Packages everything into a zip file
+1. 🔑 **Generates or loads signing key** (auto-creates `.signing_key` file on first run)
+2. ✅ Validates Python and required files
+3. 📦 Installs dependencies (pip packages, Playwright)
+4. 🔑 Injects the signing key into `license_validator.py`
+5. 🎫 Generates a signed license key for the client
+6. 🏗️ Compiles the EXE with Nuitka (bundles Python + all dependencies)
+7. 🔄 Restores original `license_validator.py` (removes embedded key)
+8. 📁 Packages everything into a zip file
 
 ---
 
 ## Build Options
 
-### Custom signing key (one-time)
+### Use existing signing key
+The script automatically uses `.signing_key` if it exists. To use a different key:
 ```powershell
 .\build.ps1 -ClientId "TestClient" -Expiry "2026-12-31" -SigningKey "your-key-here"
+```
+
+Or set it as an environment variable:
+```powershell
+$env:LICENSE_SIGNING_KEY = "your-key-here"
+.\build.ps1 -ClientId "TestClient" -Expiry "2026-12-31"
 ```
 
 ### Multiple clients
@@ -79,9 +74,9 @@ Each build creates a separate `mail_agent_<ClientId>.zip` file.
 - During installation, check **"Add Python to PATH"**
 - Restart PowerShell after installation
 
-### "Signing key not provided"
-- Set the `LICENSE_SIGNING_KEY` environment variable (see Quick Start)
-- Or pass it via `-SigningKey` parameter
+### "Failed to generate signing key"
+- Make sure Python is installed correctly
+- Check that Python's `secrets` module is available: `python -c "import secrets; print('OK')"`
 
 ### "Build failed - dist\mail_agent.exe not found"
 - Check the output for errors

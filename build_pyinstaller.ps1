@@ -115,8 +115,8 @@ Write-Host "    All prerequisites OK" -ForegroundColor Green
 Write-Host "`n==> Installing dependencies..." -ForegroundColor Cyan
 
 Write-Host "    Installing Python packages..." -ForegroundColor Gray
-pip install -q -r requirements.txt
-pip install -q pyinstaller
+python -m pip install -q -r requirements.txt
+python -m pip install -q pyinstaller
 
 Write-Host "    Installing Playwright Chromium..." -ForegroundColor Gray
 python -m playwright install chromium
@@ -207,7 +207,7 @@ if (Test-Path "build") {
     Remove-Item "build" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-pyinstaller `
+python -m pyinstaller `
     --onefile `
     --console `
     --name mail_agent `
